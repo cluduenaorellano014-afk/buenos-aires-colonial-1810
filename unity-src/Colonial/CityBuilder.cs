@@ -140,7 +140,7 @@ namespace Colonial
                 return;
             }
             // base (zócalo)
-            g.BoxMM(new Vector3(-L / 2, 0, 0), new Vector3(L / 2, 0.85f, 0.1f), Zocalo, LowPoly.F.Front | LowPoly.F.Top);
+            g.BoxMM(new Vector3(-L / 2, 0, 0), new Vector3(L / 2, 0.85f, 0.05f), Zocalo, LowPoly.F.Front | LowPoly.F.Top);
             // cornice / parapet
             if (tiled) g.BoxMM(new Vector3(-L / 2, Hh - 0.35f, 0), new Vector3(L / 2, Hh, 0.3f), Whitewash, LowPoly.F.Front | LowPoly.F.Bottom);
             else
@@ -187,8 +187,8 @@ namespace Colonial
         public static void Reja(LowPoly g, float x, float y0, float w, float hgt)
         {
             // window recess (dark) + green shutters + projecting iron grille on a sill
-            g.BoxMM(new Vector3(x - w / 2 - 0.15f, y0 - 0.15f, 0), new Vector3(x + w / 2 + 0.15f, y0 + hgt + 0.15f, 0.06f), WoodDark, LowPoly.F.Front | LowPoly.F.Left | LowPoly.F.Right | LowPoly.F.Top);
-            g.BoxMM(new Vector3(x - w / 2, y0, 0.06f), new Vector3(x + w / 2, y0 + hgt, 0.08f), Glass, LowPoly.F.Front);
+            g.BoxMM(new Vector3(x - w / 2 - 0.15f, y0 - 0.15f, 0), new Vector3(x + w / 2 + 0.15f, y0 + hgt + 0.15f, 0.03f), WoodDark, LowPoly.F.Front | LowPoly.F.Left | LowPoly.F.Right | LowPoly.F.Top);
+            g.BoxMM(new Vector3(x - w / 2, y0, 0.03f), new Vector3(x + w / 2, y0 + hgt, 0.07f), Glass, LowPoly.F.Front);
             g.BoxMM(new Vector3(x - w / 2 - 0.62f, y0, 0.06f), new Vector3(x - w / 2 - 0.1f, y0 + hgt, 0.1f), Shutter, LowPoly.F.Front | LowPoly.F.Left | LowPoly.F.Right);
             g.BoxMM(new Vector3(x + w / 2 + 0.1f, y0, 0.06f), new Vector3(x + w / 2 + 0.62f, y0 + hgt, 0.1f), Shutter, LowPoly.F.Front | LowPoly.F.Left | LowPoly.F.Right);
             g.BoxMM(new Vector3(x - w / 2 - 0.1f, y0 - 0.22f, 0), new Vector3(x + w / 2 + 0.1f, y0 - 0.05f, 0.38f), Stone, LowPoly.F.Front | LowPoly.F.Top | LowPoly.F.Left | LowPoly.F.Right | LowPoly.F.Bottom);
@@ -205,9 +205,9 @@ namespace Colonial
         public static void Balcony(LowPoly g, float x, float y)
         {
             float w = 1.3f;
-            g.BoxMM(new Vector3(x - w / 2 - 0.15f, y, 0), new Vector3(x + w / 2 + 0.15f, y + 2.5f, 0.06f), WoodDark, LowPoly.F.Front | LowPoly.F.Top);
+            g.BoxMM(new Vector3(x - w / 2 - 0.15f, y, 0), new Vector3(x + w / 2 + 0.15f, y + 2.5f, 0.03f), WoodDark, LowPoly.F.Front | LowPoly.F.Top);
             g.BoxMM(new Vector3(x - w / 2, y, 0.06f), new Vector3(x + w / 2, y + 2.3f, 0.1f), Shutter, LowPoly.F.Front);
-            g.BoxMM(new Vector3(x - w / 2 + 0.6f, y, 0.1f), new Vector3(x + w / 2 - 0.6f, y + 2.3f, 0.12f), WoodDark, LowPoly.F.Front);
+            g.BoxMM(new Vector3(x - w / 2 + 0.6f, y, 0.1f), new Vector3(x + w / 2 - 0.6f, y + 2.3f, 0.14f), WoodDark, LowPoly.F.Front);
             // slab
             g.BoxMM(new Vector3(x - 1.15f, y - 0.16f, 0), new Vector3(x + 1.15f, y, 1.05f), Stone, LowPoly.F.All & ~LowPoly.F.Back);
             // railing

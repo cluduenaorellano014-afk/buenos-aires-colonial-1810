@@ -11,12 +11,14 @@ namespace Colonial
     // door cutscenes, the place labels and fast travel.
     public class ColonialGame : MonoBehaviour
     {
-        public Material palette, dirt, grass, water;
+        public Material palette, dirt, grass, water, rain;
         public Light sun;
 
         readonly List<Site> sites = new List<Site>();
         Crowd crowd;
         ColonialHUD hud;
+        Weather weather;
+        Ambience ambience;
         Transform player;
         CharacterController cc;
         FirstPersonController fpc;
@@ -50,6 +52,12 @@ namespace Colonial
             hud.onAction = () => { if (promptEntrance != null) StartCoroutine(Pass(promptEntrance, promptIn)); };
             hud.onTravel = k => { if (!busy) StartCoroutine(Travel(k, false)); };
             hud.onMap = ColonialBackToMap;
+
+            weather = new GameObject("Clima").AddComponent<Weather>();
+            weather.Init(cam, sun, rain, dirt, grass, mobile);
+            ambience = new GameObject("Sonido").AddComponent<Ambience>();
+            ambience.Init(player, cam, weather, crowd, sites);
+            hud.AddToggles(() => weather.Toggle(), weather.Raining, () => ambience.Toggle(), ambience.Enabled);
         }
 
         // Also called from the editor (ColonialBuilder) to render verification shots without playing.
@@ -96,7 +104,7 @@ namespace Colonial
             cam.transform.SetParent(pgo.transform, false);
             cam.transform.localPosition = new Vector3(0, 1.62f, 0);
             cam.transform.localRotation = Quaternion.identity;
-            cam.nearClipPlane = 0.08f; cam.farClipPlane = mobile ? 420f : 800f; cam.fieldOfView = 68f;
+            cam.nearClipPlane = 0.1f; cam.farClipPlane = mobile ? 420f : 800f; cam.fieldOfView = 68f;
             fpc = pgo.AddComponent<FirstPersonController>();
             fpc.walkSpeed = 3.0f; fpc.runMultiplier = 2.0f; fpc.headBobAmount = 0.03f; fpc.headBobFrequency = 1.9f;
             player = pgo.transform;
@@ -177,6 +185,7 @@ namespace Colonial
             }
             // 2) the doors swing open
             foreach (var l in e.leaves) l.Open(true);
+            if (e.leaves.Count > 0) ambience.PlayDoor();
             yield return new WaitForSeconds(e.leaves.Count > 0 ? 0.95f : 0.1f);
             // 3) walk through the doorway, with a gentle step rhythm
             bool titled = false;

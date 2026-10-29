@@ -86,6 +86,19 @@ namespace Colonial
             actors.Add(new ActorSpot { pos = World(local), yaw = WorldYaw(localYaw), outfit = o, name = name, group = group, lines = lines, seated = seated, item = item, hat = hat, site = this });
         }
 
+        // furniture the player bumps into: the bounds of what `build` adds to the deco mesh become an
+        // invisible blocker, at least `minHeight` tall so low pieces can't be climbed
+        public void Solid(System.Action build, float minHeight = 1.2f)
+        {
+            int v0 = deco.VertexCount;
+            build();
+            if (deco.VertexCount == v0) return;
+            var b = deco.BoundsSince(v0);
+            Vector3 min = b.min, max = b.max;
+            max.y = Mathf.Max(max.y, min.y + minHeight);
+            blockers.Add(((min + max) / 2f, max - min));
+        }
+
         public void Light(Vector3 local, Color c, float range, float intensity, bool flicker = false) => lights.Add((World(local), c, range, intensity, flicker));
         public void Interior(Vector3 min, Vector3 max) => interiors.Add(new Bounds((min + max) / 2, max - min));
 
@@ -105,6 +118,7 @@ namespace Colonial
             foreach (var (c, sz) in blockers)
             {
                 var b = new GameObject("Limite"); b.transform.SetParent(root.transform, false);
+                b.layer = 2;   // Ignore Raycast: blocks walking, not the speech-bubble visibility test
                 var bc = b.AddComponent<BoxCollider>(); bc.center = c; bc.size = sz;
             }
             foreach (var (p, c, range, intensity, flicker) in lights)
@@ -116,7 +130,13 @@ namespace Colonial
                 l.renderMode = LightRenderMode.ForcePixel;
                 if (flicker) l.gameObject.AddComponent<Flicker>();
             }
-            foreach (var e in entrances) e.Resolve();
+            foreach (var e in entrances)
+            {
+                e.Resolve();
+                foreach (var (c, sz) in blockers)
+                    foreach (var pt in new[] { e.outsideLocal, e.insideLocal })
+                        if (new Bounds(c, sz + new Vector3(0.8f, 0, 0.8f)).Contains(pt + Vector3.up)) Debug.LogWarning($"[Colonial] {title}: un obstáculo tapa la puerta «{e.title}» en {pt}");
+            }
         }
     }
 

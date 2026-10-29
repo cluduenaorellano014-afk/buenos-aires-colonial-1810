@@ -26,6 +26,7 @@ namespace Colonial
         Crowd crowd; Camera cam;
         public Action onAction, onMap;
         public Action<string> onTravel;
+        float buttonsTop;
         float titleT, fadeAlpha, fadeTarget, barT, barTarget, helpTimer = 10f;
         bool touchMode;
 
@@ -64,6 +65,7 @@ namespace Colonial
 
             // buttons (top-right, under the map's own "back" button when embedded)
             float top = embedded ? -76f : -16f;
+            buttonsTop = embedded ? top : top - 58;
             if (!embedded) Button(canvasRT, "‹ Mapa", new Vector2(-16, top), new Vector2(150, 48), new Vector2(1, 1), () => onMap?.Invoke(), Red, Color.white);
             var lugares = Button(canvasRT, "Lugares", new Vector2(-16, embedded ? top : top - 58), new Vector2(150, 46), new Vector2(1, 1), ToggleMenu, Parchment, Ink);
             touchButtons.Add(lugares);
@@ -126,6 +128,17 @@ namespace Colonial
             };
         }
 
+        // rain and sound switches, left of "Lugares"; each callback toggles and returns the new state
+        public void AddToggles(Func<bool> rain, bool rainOn, Func<bool> sound, bool soundOn)
+        {
+            RectTransform rainBtn = null, soundBtn = null;
+            rainBtn = Button(canvasRT, Lbl("Lluvia", rainOn), new Vector2(-176, buttonsTop), new Vector2(124, 46), new Vector2(1, 1), () => rainBtn.GetComponentInChildren<Text>().text = Lbl("Lluvia", rain()), Parchment, Ink);
+            soundBtn = Button(canvasRT, Lbl("Sonido", soundOn), new Vector2(-310, buttonsTop), new Vector2(124, 46), new Vector2(1, 1), () => soundBtn.GetComponentInChildren<Text>().text = Lbl("Sonido", sound()), Parchment, Ink);
+            touchButtons.Add(rainBtn); touchButtons.Add(soundBtn);
+            fade.transform.SetAsLastSibling();
+        }
+        static string Lbl(string what, bool on) => what + (on ? ": sí" : ": no");
+
         // ------------------------------------------------------------------ public API
         public void SetPlace(string title, string sub) { if (placeTitle.text != title) placeTitle.text = title; if (placeSub.text != sub) placeSub.text = sub; }
         public void SetPrompt(string text, string touchLabel)
@@ -156,8 +169,8 @@ namespace Colonial
 
             helpTimer -= dt;
             helpText.text = touchMode ? "Izquierda: caminar · Derecha: mirar · «Correr» · «Entrar» junto a las puertas" : "W A S D: caminar · Ratón: mirar · Shift: correr · E: entrar / salir · Esc: soltar el ratón";
-            helpText.transform.parent.gameObject.SetActive(helpTimer > 0f || (!touchMode && Cursor.lockState != CursorLockMode.Locked));
-            lookHint.gameObject.SetActive(!touchMode && Cursor.lockState != CursorLockMode.Locked && !MenuOpen && barTarget == 0f);
+            helpText.transform.parent.gameObject.SetActive(helpTimer > 0f || (!touchMode && !FirstPersonController.IsCursorLocked));
+            lookHint.gameObject.SetActive(!touchMode && !FirstPersonController.IsCursorLocked && !MenuOpen && barTarget == 0f);
 
             UpdateBubbles();
         }

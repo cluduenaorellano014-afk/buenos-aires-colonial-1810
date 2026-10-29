@@ -17,6 +17,14 @@ namespace Colonial
 
         public int VertexCount => V.Count;
 
+        // bounds of the vertices added since `start` (what one prop call produced)
+        public Bounds BoundsSince(int start)
+        {
+            var b = new Bounds(V[start], Vector3.zero);
+            for (int i = start + 1; i < V.Count; i++) b.Encapsulate(V[i]);
+            return b;
+        }
+
         // ---------------------------------------------------------------- transform stack
         public LowPoly Push(Vector3 pos, float yawDeg = 0f, float pitchDeg = 0f, float rollDeg = 0f)
         {

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -49,13 +50,40 @@ public class FirstPersonController : MonoBehaviour
 #endif
     }
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+    // In the browser the page itself requests pointer lock inside the click (PointerLock.jslib):
+    // Safari rejects a lock requested from the game loop and that error stopped the game.
+    [DllImport("__Internal")] static extern void WebPointerLockInit();
+    [DllImport("__Internal")] static extern void WebPointerLockWant(int want);
+    [DllImport("__Internal")] static extern int WebPointerLockIsLocked();
+    [DllImport("__Internal")] static extern void WebPointerLockRelease();
+    static bool webInit;
+    static int wantSent = -1;
+
+    static void LockCursor(bool locked)
+    {
+        if (!webInit) { webInit = true; WebPointerLockInit(); }
+        if (!locked) WebPointerLockRelease();
+    }
+    static void WantLockOnClick(bool want)
+    {
+        if (!webInit) { webInit = true; WebPointerLockInit(); }
+        int w = want ? 1 : 0;
+        if (w != wantSent) { wantSent = w; WebPointerLockWant(w); }
+    }
+    static bool CursorLocked => webInit && WebPointerLockIsLocked() == 1;
+#else
     static void LockCursor(bool locked)
     {
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !locked;
     }
+    static void WantLockOnClick(bool want) { }
+    static bool CursorLocked => Cursor.lockState == CursorLockMode.Locked;
+#endif
 
     public float Pitch { get => pitch; set => pitch = value; }
+    public static bool IsCursorLocked => CursorLocked;
 
     void Update()
     {
@@ -65,14 +93,19 @@ public class FirstPersonController : MonoBehaviour
         bool touchMode = MobileTouchInput.IsTouchMode;
 
         // ---- cursor (computer only) ----
-        if (touchMode != wasTouchMode) { LockCursor(!touchMode); wasTouchMode = touchMode; }
+        if (touchMode != wasTouchMode) { LockCursor(false); wasTouchMode = touchMode; }
+        bool locked = CursorLocked;
         if (!touchMode)
         {
             if (kb != null && kb.escapeKey.wasPressedThisFrame) LockCursor(false);
-            if (MenuOpen && Cursor.lockState == CursorLockMode.Locked) LockCursor(false);
+            if (MenuOpen && locked) LockCursor(false);
             bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            if (!MenuOpen && !overUI && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked) LockCursor(true);
+            WantLockOnClick(!MenuOpen && !overUI);
+#if !(UNITY_WEBGL && !UNITY_EDITOR)
+            if (!MenuOpen && !overUI && mouse != null && mouse.leftButton.wasPressedThisFrame && !locked) LockCursor(true);
+#endif
         }
+        else WantLockOnClick(false);
 
         if (!controller.enabled)
         {
@@ -84,7 +117,7 @@ public class FirstPersonController : MonoBehaviour
 
         // ---- look ----
         Vector2 look = InputLocked ? Vector2.zero : touch.LookDelta;
-        if (!InputLocked && !touchMode && mouse != null && Cursor.lockState == CursorLockMode.Locked) look += mouse.delta.ReadValue() * mouseSensitivity;
+        if (!InputLocked && !touchMode && mouse != null && locked) look += mouse.delta.ReadValue() * mouseSensitivity;
         if (!InputLocked && pad != null) look += pad.rightStick.ReadValue() * gamepadLookSpeed * Time.deltaTime;
         transform.Rotate(0f, look.x, 0f);
         pitch = Mathf.Clamp(pitch - look.y, -85f, 85f);

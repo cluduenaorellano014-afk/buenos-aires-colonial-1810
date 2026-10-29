@@ -15,6 +15,7 @@ Mapa antiguo interactivo de Buenos Aires en mayo de 1810 y un juego en primera p
   - **Jabonería de Vieytes:** tienda, pailas hirviendo, moldes, corral y la trastienda donde se reúnen los patriotas.
   - **Casa de Don Blas:** zaguán, tienda, dos patios, sala de tertulia con estrado, comedor, cocina, parral y huerta.
 - Vecinos, vendedores, soldados y frailes conversan sobre la Revolución de Mayo en globos de texto.
+- Lluvia que va y viene (con truenos), y sonido ambiente generado por el juego: lluvia en la calle y en los techos, viento, el murmullo de la gente, el río, el fuego de la jabonería, la campana de la Catedral, pájaros, pasos y puertas.
 
 ## Controles
 
@@ -25,6 +26,7 @@ Mapa antiguo interactivo de Buenos Aires en mayo de 1810 y un juego en primera p
 | Correr | Shift | Botón "Correr" |
 | Entrar / salir | E junto a una puerta | Botón "Entrar" / "Salir" |
 | Viajar | Botón "Lugares" | Botón "Lugares" |
+| Lluvia / sonido | Botones "Lluvia" y "Sonido" | Botones "Lluvia" y "Sonido" |
 | Volver al mapa | M o botón | Botón |
 
 ## Cómo está hecho

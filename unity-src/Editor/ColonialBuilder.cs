@@ -50,8 +50,18 @@ public static class ColonialBuilder
         RenderSettings.skybox = sky;
         RenderSettings.sun = sun;
 
+        // rain streaks: unlit, alpha-blended particles (the streak texture is made at runtime)
+        var rain = Mat("Lluvia", "Universal Render Pipeline/Particles/Unlit", Color.white, 0f);
+        rain.SetFloat("_Surface", 1f); rain.SetFloat("_Blend", 0f);
+        rain.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha); rain.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha); rain.SetFloat("_ZWrite", 0f);
+        rain.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        rain.SetOverrideTag("RenderType", "Transparent");
+        rain.renderQueue = (int)RenderQueue.Transparent;
+        rain.enableInstancing = false;
+        EditorUtility.SetDirty(rain);
+
         var game = new GameObject("Buenos Aires 1810").AddComponent<ColonialGame>();
-        game.palette = palette; game.dirt = dirt; game.grass = grass; game.water = water; game.sun = sun;
+        game.palette = palette; game.dirt = dirt; game.grass = grass; game.water = water; game.sun = sun; game.rain = rain;
 
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -143,6 +153,133 @@ public static class ColonialBuilder
         RenderTexture.active = prev;
         File.WriteAllBytes(path, tex.EncodeToPNG());
         Object.DestroyImmediate(tex);
+    }
+
+    // ------------------------------------------------------------------ z-fighting scan
+    // Finds pairs of triangles that face the same way, lie within 2.5 cm of the same plane and
+    // overlap: the GPU can't decide which one is in front, so they flicker. Writes a report.
+    [MenuItem("Buenos Aires 1810/4. Buscar superficies superpuestas")]
+    public static void ZFightScan()
+    {
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        var game = Object.FindFirstObjectByType<ColonialGame>();
+        var world = game.BuildWorld();
+        var skip = new System.Collections.Generic.HashSet<Renderer>();
+        foreach (var lg in world.GetComponentsInChildren<LODGroup>())
+        {
+            var lods = lg.GetLODs();
+            for (int i = 1; i < lods.Length; i++) foreach (var r in lods[i].renderers) if (r) skip.Add(r);
+        }
+        var tris = new System.Collections.Generic.List<(Vector3 a, Vector3 b, Vector3 c, Vector3 n, float d, int src, Vector2 uv)>();
+        var names = new System.Collections.Generic.List<string>();
+        var srcRoot = new System.Collections.Generic.List<Transform>();
+        foreach (var mf in world.GetComponentsInChildren<MeshFilter>())
+        {
+            var mr = mf.GetComponent<MeshRenderer>();
+            if (mr == null || skip.Contains(mr) || mf.sharedMesh == null) continue;
+            var m = mf.sharedMesh; var v = m.vertices; var t = m.triangles; var uvs = m.uv; var M = mf.transform.localToWorldMatrix;
+            int src = names.Count; names.Add(NodePath(mf.transform));
+            var rt = mf.transform; while (rt.parent != null && rt.parent != world) rt = rt.parent; srcRoot.Add(rt);
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                Vector3 a = M.MultiplyPoint3x4(v[t[i]]), b = M.MultiplyPoint3x4(v[t[i + 1]]), c = M.MultiplyPoint3x4(v[t[i + 2]]);
+                var cr = Vector3.Cross(b - a, c - a);
+                if (cr.magnitude < 1e-4f) continue;
+                var n = cr.normalized;
+                tris.Add((a, b, c, n, Vector3.Dot(n, a), src, uvs.Length > 0 ? uvs[t[i]] : Vector2.zero));
+            }
+        }
+        // bucket by quantized normal and plane offset
+        const float DQ = 0.025f;
+        var buckets = new System.Collections.Generic.Dictionary<(int, int, int, long), System.Collections.Generic.List<int>>();
+        (int, int, int) NK(Vector3 n) => (Mathf.RoundToInt(n.x * 40), Mathf.RoundToInt(n.y * 40), Mathf.RoundToInt(n.z * 40));
+        for (int i = 0; i < tris.Count; i++)
+        {
+            var (x, y, z) = NK(tris[i].n);
+            var k = (x, y, z, (long)Mathf.FloorToInt(tris[i].d / DQ));
+            if (!buckets.TryGetValue(k, out var l)) buckets[k] = l = new System.Collections.Generic.List<int>();
+            l.Add(i);
+        }
+        var hits = new System.Collections.Generic.Dictionary<(int, int, int), (int count, float area, string a, string b, Vector3 p, float dd, Vector3 n, Transform root, int ta, int tb)>();
+
+        foreach (var kv in buckets)
+        {
+            var (x, y, z, dk) = kv.Key;
+            var cand = new System.Collections.Generic.List<int>(kv.Value);
+            if (buckets.TryGetValue((x, y, z, dk + 1), out var next)) cand.AddRange(next);
+            int own = kv.Value.Count;
+            if (cand.Count < 2) continue;
+            var n = tris[kv.Value[0]].n;
+            var u = Vector3.Cross(n, Mathf.Abs(n.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var w = Vector3.Cross(n, u);
+            var P = cand.Select(i => { var tr = tris[i]; return new[] { new Vector2(Vector3.Dot(tr.a, u), Vector3.Dot(tr.a, w)), new Vector2(Vector3.Dot(tr.b, u), Vector3.Dot(tr.b, w)), new Vector2(Vector3.Dot(tr.c, u), Vector3.Dot(tr.c, w)) }; }).ToArray();
+            var order = Enumerable.Range(0, cand.Count).OrderBy(i => P[i].Min(p => p.x)).ToArray();
+            for (int oi = 0; oi < order.Length; oi++)
+            {
+                int i = order[oi]; float maxX = P[i].Max(p => p.x);
+                for (int oj = oi + 1; oj < order.Length; oj++)
+                {
+                    int j = order[oj];
+                    if (P[j].Min(p => p.x) >= maxX - 0.01f) break;
+                    if (i >= own && j >= own) continue;   // both from the next bucket: counted there
+                    var ti = tris[cand[i]]; var tj = tris[cand[j]];
+                    if (Vector3.Dot(ti.n, tj.n) < 0.999f || Mathf.Abs(ti.d - tj.d) > DQ) continue;
+                    if ((ti.uv - tj.uv).sqrMagnitude < 1e-6f) continue;   // same color, same plane: invisible
+                    float area = OverlapArea(P[i], P[j]);
+                    if (area < 0.02f) continue;
+                    var c = (ti.a + ti.b + ti.c) / 3f;
+                    var cell = (Mathf.FloorToInt(c.x / 4f), Mathf.FloorToInt(c.y / 4f), Mathf.FloorToInt(c.z / 4f));
+                    hits.TryGetValue(cell, out var h);
+                    hits[cell] = (h.count + 1, h.area + area, h.a ?? names[ti.src], h.b ?? names[tj.src], c, Mathf.Max(h.dd, Mathf.Abs(ti.d - tj.d)), ti.n, srcRoot[ti.src], h.count == 0 ? cand[i] : h.ta, h.count == 0 ? cand[j] : h.tb);
+                }
+            }
+        }
+        var lines = hits.Values.OrderByDescending(h => h.area).Select(h =>
+        {
+            var m = City.U2Map(h.p);
+            var lp = h.root.InverseTransformPoint(h.p); var ln = h.root.InverseTransformDirection(h.n);
+            string Bx(int k) { var tr = tris[k]; var a = h.root.InverseTransformPoint(tr.a); var b = h.root.InverseTransformPoint(tr.b); var c = h.root.InverseTransformPoint(tr.c); var mn = Vector3.Min(a, Vector3.Min(b, c)); var mx = Vector3.Max(a, Vector3.Max(b, c)); return $"[{mn.x:F2},{mn.y:F2},{mn.z:F2}..{mx.x:F2},{mx.y:F2},{mx.z:F2}]"; }
+            return $"{Bx(h.ta)} vs {Bx(h.tb)}  n({ln.x:F2},{ln.y:F2},{ln.z:F2})  {h.area,8:F2} m²  {h.count,4} pares  Δ{h.dd * 100f:F1}cm  mapa({m.x:F0},{m.y:F0})  local({lp.x:F1},{lp.y:F2},{lp.z:F1}) n({ln.x:F0},{ln.y:F0},{ln.z:F0})  {h.a}  |  {h.b}";
+        }).ToList();
+        Directory.CreateDirectory("_work/colonial");
+        File.WriteAllLines("_work/colonial/zfight.txt", lines);
+        Debug.Log($"[Colonial] z-fight: {tris.Count} triángulos, {lines.Count} zonas -> _work/colonial/zfight.txt");
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+    }
+
+    static string NodePath(Transform t) => t.parent == null ? t.name : NodePath(t.parent) + "/" + t.name;
+
+    // area of the intersection of two 2D triangles (Sutherland-Hodgman clip)
+    static float OverlapArea(Vector2[] a, Vector2[] b)
+    {
+        var poly = new System.Collections.Generic.List<Vector2>(a);
+        float sb = Mathf.Sign(Cross2(b[1] - b[0], b[2] - b[0]));
+        for (int e = 0; e < 3 && poly.Count > 0; e++)
+        {
+            Vector2 p0 = b[e], p1 = b[(e + 1) % 3];
+            var outp = new System.Collections.Generic.List<Vector2>();
+            for (int i = 0; i < poly.Count; i++)
+            {
+                var cur = poly[i]; var prev = poly[(i + poly.Count - 1) % poly.Count];
+                bool cin = sb * Cross2(p1 - p0, cur - p0) >= 0, pin = sb * Cross2(p1 - p0, prev - p0) >= 0;
+                if (cin != pin)
+                {
+                    float da = Cross2(p1 - p0, prev - p0), db = Cross2(p1 - p0, cur - p0);
+                    outp.Add(prev + (cur - prev) * (da / (da - db)));
+                }
+                if (cin) outp.Add(cur);
+            }
+            poly = outp;
+        }
+        float ar = 0;
+        for (int i = 0; i < poly.Count; i++) ar += Cross2(poly[i], poly[(i + 1) % poly.Count]);
+        return Mathf.Abs(ar) / 2f;
+    }
+    static float Cross2(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+    public static void ZFightFromCommandLine()
+    {
+        ZFightScan();
+        EditorApplication.Exit(0);
     }
 
     public static void BuildSceneAndShots()

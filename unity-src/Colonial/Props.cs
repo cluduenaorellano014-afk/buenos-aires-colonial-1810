@@ -26,7 +26,7 @@ namespace Colonial
             g.Push(p, yaw);
             g.Box(new Vector3(0, 0.46f, 0), new Vector3(0.46f, 0.06f, 0.44f), seat, LowPoly.F.All);
             foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 }) g.Box(new Vector3(sx * 0.19f, 0.22f, sz * 0.18f), new Vector3(0.05f, 0.44f, 0.05f), WoodDark);
-            g.Box(new Vector3(0, 0.85f, -0.2f), new Vector3(0.46f, 0.7f, 0.05f), seat, LowPoly.F.All);
+            g.Box(new Vector3(0, 0.85f, -0.2f), new Vector3(0.34f, 0.7f, 0.05f), seat, LowPoly.F.All);
             g.Box(new Vector3(-0.2f, 0.8f, -0.2f), new Vector3(0.06f, 0.75f, 0.06f), WoodDark); g.Box(new Vector3(0.2f, 0.8f, -0.2f), new Vector3(0.06f, 0.75f, 0.06f), WoodDark);
             g.Pop();
         }
@@ -106,9 +106,9 @@ namespace Colonial
 
         public static void Rugs(LowPoly g, Vector3 c, float w, float d, Color32 a, Color32 b)
         {
-            g.BoxMM(c + new Vector3(-w / 2, 0, -d / 2), c + new Vector3(w / 2, 0.02f, d / 2), a, LowPoly.F.Top);
-            g.BoxMM(c + new Vector3(-w / 2 + 0.3f, 0, -d / 2 + 0.3f), c + new Vector3(w / 2 - 0.3f, 0.025f, d / 2 - 0.3f), b, LowPoly.F.Top);
-            g.BoxMM(c + new Vector3(-w / 2 + 0.45f, 0, -d / 2 + 0.45f), c + new Vector3(w / 2 - 0.45f, 0.03f, d / 2 - 0.45f), a, LowPoly.F.Top);
+            g.BoxMM(c + new Vector3(-w / 2, 0, -d / 2), c + new Vector3(w / 2, 0.03f, d / 2), a, LowPoly.F.Top);
+            g.BoxMM(c + new Vector3(-w / 2 + 0.3f, 0, -d / 2 + 0.3f), c + new Vector3(w / 2 - 0.3f, 0.055f, d / 2 - 0.3f), b, LowPoly.F.Top);
+            g.BoxMM(c + new Vector3(-w / 2 + 0.45f, 0, -d / 2 + 0.45f), c + new Vector3(w / 2 - 0.45f, 0.08f, d / 2 - 0.45f), a, LowPoly.F.Top);
         }
 
         public static void Checker(LowPoly g, float x0, float x1, float z0, float z1, float y, float s, Color32 a, Color32 b)

@@ -71,6 +71,23 @@
       <p id="error-text"></p>
     </div>
 
+    <script>
+      // Safari throws when pointer lock is requested outside a click; never let that stop the game.
+      (function () {
+        var orig = Element.prototype.requestPointerLock;
+        if (!orig) return;
+        Element.prototype.requestPointerLock = function () {
+          try {
+            var p = orig.apply(this, arguments);
+            if (p && p.catch) p.catch(function () {});
+            return p;
+          } catch (e) {}
+        };
+        window.addEventListener("unhandledrejection", function (e) {
+          if (e.reason && e.reason.name === "NotAllowedError") { e.preventDefault(); e.stopImmediatePropagation(); }
+        });
+      })();
+    </script>
     <script src="Build/BuenosAires1810.loader.js"></script>
     <script>
       var canvas = document.getElementById("unity-canvas");
