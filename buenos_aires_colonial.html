@@ -221,7 +221,8 @@ body.touch #clickToPlay span{font-size:15px}
    index.html (por ej. "unity/cabildo/index.html"). Al teletransportarse se
    abrirá esa build. Si está vacío, se usa el entorno 3D incorporado.
    ===================================================================== */
-const UNITY_BUILDS = { plaza:'', cabildo:'', jaboneria:'', donblas:'', catedral:'', fuerte:'' };
+const UNITY_GAME = 'unity/index.html';   // juego de Unity "Buenos Aires 1810" (vacío = usar el 3D incorporado)
+const UNITY_BUILDS = Object.fromEntries(['plaza','cabildo','jaboneria','donblas','catedral','fuerte'].map(k=>[k,UNITY_GAME?UNITY_GAME+'?lugar='+k:'']));
 
 /* ---------- dispositivo ---------- */
 const IS_TOUCH=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window);
@@ -529,7 +530,7 @@ function onMapClick(id,sx,sy){
       [{label:'⛪ Vista en 3D',fn:()=>enter3D({x:h.fx+h.nx*(S/2+0.5),z:h.fz+h.nz*(S/2+0.5),lx:h.fx,lz:h.fz,ly:2.5},'Casa de los '+h.family)}],sx,sy);
   }
 }
-document.getElementById('btn3d').onclick=()=>enter3D(PLACES.plaza.tp,'la Plaza Mayor');
+document.getElementById('btn3d').onclick=()=>UNITY_BUILDS.plaza?teleport('plaza'):enter3D(PLACES.plaza.tp,'la Plaza Mayor');
 
 /* ---------- transiciones ---------- */
 const fade=document.getElementById('fade');
@@ -550,7 +551,10 @@ function teleport(k){
   }
   enter3D(PLACES[k].tp,PLACES[k].name);
 }
-document.getElementById('unityBack').onclick=()=>{document.getElementById('unityWrap').style.display='none';document.getElementById('unityFrame').src='about:blank';};
+function closeUnity(){document.getElementById('unityWrap').style.display='none';document.getElementById('unityFrame').src='about:blank';}
+document.getElementById('unityBack').onclick=closeUnity;
+// el juego de Unity pide volver al mapa (botón «Mapa» o tecla M)
+addEventListener('message',e=>{if(e.data&&e.data.tipo==='volverMapa')closeUnity();});
 
 /* =====================================================================
    MUNDO 3D (Three.js)

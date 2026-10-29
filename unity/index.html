@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#17110c">
+    <title>Buenos Aires 1810</title>
+    <style>
+      html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        overflow: hidden; overscroll-behavior: none;
+        background: #17110c; color: #f3e7d4;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+      }
+      #game {
+        position: fixed; inset: 0;
+        width: 100vw; height: 100vh; height: 100dvh;
+      }
+      #unity-canvas {
+        display: block; width: 100%; height: 100%;
+        background: #17110c; outline: none;
+        touch-action: none;
+      }
+      .overlay {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 18px;
+        background: #17110c; text-align: center; padding: 24px; box-sizing: border-box;
+      }
+      #loading h1 { margin: 0; font-weight: 600; font-size: clamp(22px, 5vw, 38px); letter-spacing: .04em; }
+      #loading p { margin: 0; opacity: .7; font-size: clamp(13px, 3.2vw, 16px); }
+      #bar { width: min(70vw, 420px); height: 8px; border-radius: 4px; background: #3a2c20; overflow: hidden; }
+      #bar-fill { width: 0; height: 100%; background: #d9a35b; transition: width .2s; }
+      #error { display: none; z-index: 3; }
+      #error p { max-width: 520px; line-height: 1.5; }
+      #rotate { display: none; z-index: 2; background: rgba(23, 17, 12, .96); }
+      #rotate .phone { width: 46px; height: 78px; border: 3px solid #f3e7d4; border-radius: 9px; animation: turn 2s ease-in-out infinite; }
+      @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+      /* only phones/tablets held upright see the rotate hint */
+      @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+      #fullscreen {
+        position: fixed; left: 50%; transform: translateX(-50%); top: max(10px, env(safe-area-inset-top));
+        width: 40px; height: 40px; border-radius: 8px; border: 0; cursor: pointer;
+        background: rgba(0, 0, 0, .35); color: #fff; font-size: 20px; line-height: 40px;
+        display: none; z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+    <button id="fullscreen" title="Pantalla completa" aria-label="Pantalla completa">⛶</button>
+
+    <div id="loading" class="overlay">
+      <h1>Buenos Aires · Mayo de 1810</h1>
+      <p style="max-width:520px">Recorré la ciudad, entrá al Cabildo, la Catedral, el Fuerte, la Jabonería de Vieytes y la casa de Don Blas.</p>
+      <div id="bar"><div id="bar-fill"></div></div>
+      <p id="loading-text">Cargando… 0%</p>
+    </div>
+    <div id="rotate" class="overlay">
+      <div class="phone"></div>
+      <p>Girá el celular para jugar en horizontal</p>
+    </div>
+    <div id="error" class="overlay">
+      <h1>No se pudo iniciar</h1>
+      <p id="error-text"></p>
+    </div>
+
+    <script src="Build/BuenosAires1810.loader.js"></script>
+    <script>
+      var canvas = document.getElementById("unity-canvas");
+      var isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+      var ua = navigator.userAgent;
+      var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+      function showError(msg) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error-text").textContent = msg;
+        document.getElementById("error").style.display = "flex";
+      }
+
+      // Keep the browser from scrolling, zooming or opening menus while playing (iOS Safari included).
+      ["touchmove", "gesturestart", "gesturechange", "gestureend"].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+      });
+      document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+      var lastTouchEnd = 0;
+      document.addEventListener("touchend", function (e) {
+        var now = Date.now();
+        if (now - lastTouchEnd < 350) e.preventDefault();  // no double-tap zoom
+        lastTouchEnd = now;
+      }, { passive: false });
+      canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+
+      // WebGL 2 is required (Safari 15+, Chrome, Firefox, Edge).
+      var probe = document.createElement("canvas");
+      if (!probe.getContext("webgl2")) {
+        showError("Tu navegador no soporta WebGL 2. Actualizá el navegador (Safari 15 o superior, Chrome, Firefox o Edge) o activá la aceleración por hardware.");
+      } else {
+        createUnityInstance(canvas, {
+          arguments: [],
+          dataUrl: "Build/BuenosAires1810.data.unityweb",
+          frameworkUrl: "Build/BuenosAires1810.framework.js.unityweb",
+          codeUrl: "Build/BuenosAires1810.wasm.unityweb",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "DefaultCompany",
+          productName: "Buenos Aires 1810",
+          productVersion: "0.1.0",
+          // High-DPI screens (retina, phones at 3x) would render 4-9x the pixels; the game also
+          // scales its own resolution to the frame rate, so 1.5x keeps it sharp and smooth.
+          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+          matchWebGLToCanvasSize: true,
+        }, function (progress) {
+          var pct = Math.round(progress * 100);
+          document.getElementById("bar-fill").style.width = pct + "%";
+          document.getElementById("loading-text").textContent = pct < 100 ? "Cargando… " + pct + "%" : "Levantando la ciudad…";
+        }).then(function (unityInstance) {
+          document.getElementById("loading").style.display = "none";
+          var fsAvailable = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+          var fsButton = document.getElementById("fullscreen");
+          if (fsAvailable) {
+            fsButton.style.display = "block";
+            fsButton.addEventListener("click", function () { unityInstance.SetFullscreen(1); });
+          }
+          canvas.focus();
+        }).catch(function (message) {
+          showError(String(message));
+        });
+      }
+    </script>
+  </body>
+</html>
