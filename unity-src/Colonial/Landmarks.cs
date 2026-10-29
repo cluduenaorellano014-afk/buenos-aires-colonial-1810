@@ -13,8 +13,17 @@ namespace Colonial
         static Color32 Wood => CityBuilder.Wood; static Color32 WoodDark => CityBuilder.WoodDark; static Color32 Iron => CityBuilder.Iron; static Color32 Stone => CityBuilder.Stone;
 
         // walls in the local frame
-        public static void WallX(LowPoly g, float x0, float x1, float z, float y0, float y1, float t, Color32 c, params O[] o) { g.Push(new Vector3(0, 0, z)); g.Wall(x0, x1, y0, y1, t, c, o); g.Pop(); }
-        public static void WallZ(LowPoly g, float z0, float z1, float x, float y0, float y1, float t, Color32 c, params O[] o) { g.Push(new Vector3(x, 0, 0), -90f); g.Wall(z0, z1, y0, y1, t, c, o); g.Pop(); }
+        public static void WallX(LowPoly g, float x0, float x1, float z, float y0, float y1, float t, Color32 c, params O[] o) { g.Push(new Vector3(0, 0, z)); g.Wall(x0, x1, y0, y1, t, c, o); Thresholds(g, y0, t, o); g.Pop(); }
+        public static void WallZ(LowPoly g, float z0, float z1, float x, float y0, float y1, float t, Color32 c, params O[] o) { g.Push(new Vector3(x, 0, 0), -90f); g.Wall(z0, z1, y0, y1, t, c, o); Thresholds(g, y0, t, o); g.Pop(); }
+
+        // stone sill across the wall thickness under every doorway, so the street ground never shows
+        static void Thresholds(LowPoly g, float wallY0, float t, O[] ops)
+        {
+            if (wallY0 > 0.01f) return;
+            foreach (var o in ops)
+                if (o.y0 < 0.01f)
+                    g.Quad(new Vector3(o.x0, 0.015f, -t / 2), new Vector3(o.x0, 0.015f, t / 2), new Vector3(o.x1, 0.015f, t / 2), new Vector3(o.x1, 0.015f, -t / 2), Stone);
+        }
         static O A(float a, float b, float y0, float y1) => new O(a, b, y0, y1, true);
         static O R(float a, float b, float y0, float y1) => new O(a, b, y0, y1, false);
 

@@ -19,6 +19,7 @@ namespace Colonial
         ColonialHUD hud;
         Weather weather;
         Ambience ambience;
+        UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp;
         Transform player;
         CharacterController cc;
         FirstPersonController fpc;
@@ -57,6 +58,7 @@ namespace Colonial
             weather.Init(cam, sun, rain, dirt, grass, mobile);
             ambience = new GameObject("Sonido").AddComponent<Ambience>();
             ambience.Init(player, cam, weather, crowd, sites);
+            if (Application.platform == RuntimePlatform.WebGLPlayer) urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
             hud.AddToggles(() => weather.Toggle(), weather.Raining, () => ambience.Toggle(), ambience.Enabled);
         }
 
@@ -236,8 +238,8 @@ namespace Colonial
                     foreach (var e in s.entrances)
                     {
                         float dOut = Flat(player.position - e.outside), dIn = Flat(player.position - e.inside);
-                        if (dOut < best && Mathf.Abs(player.position.y - e.outside.y) < 1.5f) { best = dOut; promptEntrance = e; promptIn = true; }
-                        if (dIn < best && Mathf.Abs(player.position.y - e.inside.y) < 1.5f) { best = dIn; promptEntrance = e; promptIn = false; }
+                        if (dOut < best && Mathf.Abs(player.position.y - e.outside.y) < 1.5f && InSight(e.outside)) { best = dOut; promptEntrance = e; promptIn = true; }
+                        if (dIn < best && Mathf.Abs(player.position.y - e.inside.y) < 1.5f && InSight(e.inside)) { best = dIn; promptEntrance = e; promptIn = false; }
                     }
             }
             if (promptEntrance != null) hud.SetPrompt(promptIn ? "Entrar: " + promptEntrance.title : promptEntrance.exitTitle, promptIn ? "Entrar" : "Salir");
@@ -249,11 +251,18 @@ namespace Colonial
                 if (kb.eKey.wasPressedThisFrame && promptEntrance != null) StartCoroutine(Pass(promptEntrance, promptIn));
                 if (kb.mKey.wasPressedThisFrame) ColonialBackToMap();
             }
+            hud.SetRainState(weather.Raining);
+            // indoors the sun only lights a few patches: a short shadow range gives crisper edges
+            if (urp != null) urp.shadowDistance = inside != null ? 28f : WebPerformance.ShadowDistance;
+
             // never fall out of the world
             if (player.position.y < -20f) PlaceAt("plaza");
         }
 
         static float Flat(Vector3 v) { v.y = 0; return v.magnitude; }
+
+        // a door counts only when nothing solid stands between the player and it (no prompts through walls)
+        bool InSight(Vector3 doorPoint) => !Physics.Linecast(cam.transform.position, doorPoint + Vector3.up * 1.2f, ~(1 << 2), QueryTriggerInteraction.Ignore);
 
         string NearestPlace()
         {
